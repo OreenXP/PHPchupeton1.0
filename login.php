@@ -1,23 +1,23 @@
 <?php
 session_start();
-$error = '';
+require __DIR__ . '/config/db.php';
 
-$archivo_usuarios = __DIR__ . '/usuarios.json';
+$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['usuario'] ?? '');
     $pass = trim($_POST['password'] ?? '');
 
-    if (file_exists($archivo_usuarios)) {
-        $usuarios = json_decode(file_get_contents($archivo_usuarios), true) ?? [];
-        foreach ($usuarios as $u) {
-            if ($u['usuario'] === $user && password_verify($pass, $u['password'])) {
-                $_SESSION['usuario'] = $user;
-                $_SESSION['inicio_sesion'] = date('Y-m-d H:i:s');
-                header('Location: panel.php');
-                exit;
-            }
-        }
+    $db = getDB();
+    $stmt = $db->prepare("SELECT * FROM usuarios WHERE usuario = ? OR correo = ?");
+    $stmt->execute([$user, $user]);
+    $u = $stmt->fetch();
+
+    if ($u && password_verify($pass, $u['password'])) {
+        $_SESSION['usuario'] = $u['usuario'];
+        $_SESSION['inicio_sesion'] = $u['creado'];
+        header('Location: panel.php');
+        exit;
     }
     $error = 'Usuario o contraseña incorrectos.';
 }
@@ -54,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             <form method="POST" class="login-form">
                 <label>
-                    Usuario:
-                    <input type="text" name="usuario" required placeholder="admin">
+                    Usuario o Correo:
+                    <input type="text" name="usuario" required placeholder="usuario o correo@ejemplo.com">
                 </label>
                 <label>
                     Contraseña:

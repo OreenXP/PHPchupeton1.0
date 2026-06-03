@@ -1,41 +1,42 @@
 <?php
 session_start();
+require __DIR__ . '/config/db.php';
+
 $error = '';
 $exito = '';
 
-$archivo_usuarios = __DIR__ . '/usuarios.json';
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['usuario'] ?? '');
+    $email = trim($_POST['correo'] ?? '');
+    $tel = trim($_POST['telefono'] ?? '');
     $pass = trim($_POST['password'] ?? '');
     $pass_confirm = trim($_POST['password_confirm'] ?? '');
 
-    if ($user === '' || $pass === '' || $pass_confirm === '') {
+    if ($user === '' || $email === '' || $tel === '' || $pass === '' || $pass_confirm === '') {
         $error = 'Todos los campos son obligatorios.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'El correo electrónico no es válido.';
+    } elseif (!preg_match('/^[0-9\+\-\(\)\s]{7,20}$/', $tel)) {
+        $error = 'El teléfono no es válido.';
     } elseif ($pass !== $pass_confirm) {
         $error = 'Las contraseñas no coinciden.';
     } elseif (strlen($pass) < 4) {
         $error = 'La contraseña debe tener al menos 4 caracteres.';
     } else {
-        $usuarios = [];
-        if (file_exists($archivo_usuarios)) {
-            $usuarios = json_decode(file_get_contents($archivo_usuarios), true) ?? [];
-        }
+        $db = getDB();
+        $stmt = $db->prepare("SELECT usuario, correo FROM usuarios WHERE usuario = ? OR correo = ?");
+        $stmt->execute([$user, $email]);
+        $existente = $stmt->fetch();
 
-        foreach ($usuarios as $u) {
-            if ($u['usuario'] === $user) {
+        if ($existente) {
+            if ($existente['usuario'] === $user) {
                 $error = 'El usuario ya existe.';
-                break;
+            } else {
+                $error = 'El correo ya está registrado.';
             }
-        }
-
-        if (!$error) {
-            $usuarios[] = [
-                'usuario' => $user,
-                'password' => password_hash($pass, PASSWORD_DEFAULT),
-                'creado' => date('Y-m-d H:i:s'),
-            ];
-            file_put_contents($archivo_usuarios, json_encode($usuarios, JSON_PRETTY_PRINT));
+        } else {
+            $stmt = $db->prepare("INSERT INTO usuarios (usuario, correo, telefono, password, creado) VALUES (?, ?, ?, ?, NOW())");
+            $stmt->execute([$user, $email, $tel, password_hash($pass, PASSWORD_DEFAULT)]);
             $exito = 'Cuenta creada correctamente. <a href="login.php">Iniciar sesión</a>';
         }
     }
@@ -77,7 +78,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST" class="login-form">
                 <label>
                     Usuario:
-                    <input type="text" name="usuario" required placeholder="Elige un usuario">
+                    <input type="text" name="usuario" required placeholder="Elige un usuario" minlength="3">
+                </label>
+                <label>
+                    Correo electrónico:
+                    <input type="email" name="correo" required placeholder="correo@ejemplo.com">
+                </label>
+                <label>
+                    Teléfono:
+                    <input type="tel" name="telefono" required placeholder="+52 123 456 7890">
                 </label>
                 <label>
                     Contraseña:
