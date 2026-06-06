@@ -36,8 +36,6 @@ mysql -u root --socket=/tmp/mysql.sock fidelx <<SQL
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario VARCHAR(50) NOT NULL UNIQUE,
-    correo VARCHAR(100),
-    telefono VARCHAR(20),
     password VARCHAR(255) NOT NULL,
     creado DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
